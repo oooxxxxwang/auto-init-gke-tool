@@ -1,0 +1,61 @@
+steps:
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      [
+        'auth',
+        'activate-service-account',
+        '--key-file',
+        'cloudbuild/service-account.json',
+      ]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/${_PROJECT}/${_REPO}:$COMMIT_SHA', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/${_PROJECT}/${_REPO}:$COMMIT_SHA']
+
+  # First deployment (comment out this part after first deployment)
+  # ---------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      [
+        'create',
+        'deployment',
+        '${_REPO}',
+        '--image=gcr.io/${_PROJECT}/${_REPO}:$COMMIT_SHA',
+      ]
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=${_ZONE}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER}'
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      ['expose', 'deployment', '${_REPO}', '--type=LoadBalancer', '--port=3000']
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=${_ZONE}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER}'
+  # ---------------------------------------------------------
+
+  # Update (uncomment this part after first deployment)
+  # ---------------------------------------------------------
+  # - name: 'gcr.io/cloud-builders/kubectl'
+  #   args:
+  #     [
+  #       'set',
+  #       'image',
+  #       'deployment/${_REPO}',
+  #       '${_REPO}=gcr.io/${_PROJECT}/${_REPO}:$COMMIT_SHA',
+  #     ]
+  #   env:
+  #     - 'CLOUDSDK_COMPUTE_ZONE=${_ZONE}'
+  #     - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER}'
+  # ---------------------------------------------------------
+
+images:
+  - 'gcr.io/${_PROJECT}/${_REPO}'
+
+substitutions:
+  _PROJECT:
+  _ZONE: us-central1-c
+  _CLUSTER: cluster-1
+  _REPO: nestjs-example
